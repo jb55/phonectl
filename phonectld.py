@@ -6,8 +6,10 @@ import logging
 import os
 import getpass
 import time
+import json
 import socket
 
+from phonectl import commands
 from time import sleep
 from collections import deque
 from optparse import OptionParser
@@ -24,12 +26,19 @@ else:
     raw_input = input
 
 
+def return_value(result, response=None):
+    res = {"result": result}
+    if response != None:
+        res["response"] = response
+    return res
+
 
 class PhoneCtl(ClientXMPP):
 
     def __init__(self, jid: str, password: str, phonejid: str):
         ClientXMPP.__init__(self, jid, password)
 
+        self.ctlconnection = None
         self.available = False
         self.add_event_handler("session_start", self.session_start)
         self.add_event_handler("message", self.message)
@@ -56,31 +65,27 @@ class PhoneCtl(ClientXMPP):
             logging.info("phone_status %s %s", jid, status)
             self.available = status == "available"
 
-    def respond(self, msg: str) -> None:
-        self.ctlconnection.sendall(bytes(msg, 'utf-8'))
-        self.ctlconnection.close()
-        self.done_response = True
+    def respond(self, msg: str, connection=None, result="success") -> None:
+        connection = self.ctlconnection if connection == None else connection
+        if connection:
+            payload = return_value(result, msg)
+            data = bytes(json.dumps(payload) + "\n", 'utf-8')
+            connection.sendall(data)
+            connection.close()
+            self.done_response = True
+
+    def respond_empty(self, connection):
+        self.respond(None, connection=connection, result="sent")
 
     def message(self, msg: str) -> None:
-        self.respond(msg['body'] + "\n")
+        self.respond(msg['body'])
 
     def session_start(self, event):
         self.send_presence()
         self.get_roster()
 
-        # Most get_*/set_* methods from plugins use Iq stanzas, which
-        # can generate IqError and IqTimeout exceptions
-        #
-        # try:
-        #     self.get_roster()
-        # except IqError as err:
-        #     logging.error('There was an error getting the roster')
-        #     logging.error(err.iq['error']['condition'])
-        #     self.disconnect()
-        # except IqTimeout:
-        #     logging.error('Server is taking too long to respond')
-        #     self.disconnect()
-
+    def cmd(self, cmd: str) -> None:
+        self.send_message(mto=self.phonejid, mbody=cmd, mtype='chat')
 
     def listen(self, socket_path: str, timeout=5000) -> bool:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -111,7 +116,7 @@ class PhoneCtl(ClientXMPP):
                     data = connection.recv(1024)
 
                     if not self.available:
-                        self.respond("phone is offline\n")
+                        self.respond("could not contact phone", result="offline")
                         break
 
                     if data:
@@ -120,33 +125,38 @@ class PhoneCtl(ClientXMPP):
                     if not data or len(data) < 1024:
                         cmd = re.sub("\n$", "", buf.decode("utf-8"))
                         logging.debug('received %s', cmd)
-                        if cmd == 'quit':
-                            connection.close()
-                            done = True
-                            break
-                        logging.info("sending cmd %s", cmd)
+
+                        logging.info("cmd %s", cmd)
                         self.cmd(cmd)
+                        has_response = commands.has_response(cmd)
+
+                        logging.info("has_response %s", str(has_response))
+
+                        # no response, we don't know if it succeeds
+                        if has_response == False:
+                            logging.info("has no response, responding empty")
+                            self.respond_empty(connection)
+
                         while not timed_out and not self.done_response:
                             time.sleep(0.05)
                             tries += 1
                             timed_out = 1000 * 0.05 * tries >= timeout
+
                         if timed_out:
                             logging.info("timed_out %s", str(timed_out))
+                            self.respond("phone response timed out", result="timeout")
+
                         break
 
             except Exception as e:
                 ok = False
+                logging.info(type(e))
                 logging.error(e)
             finally:
                 # Clean up the connection
                 connection.close()
         sock.close()
         return ok
-
-    def cmd(self, msg: str) -> None:
-        self.send_message(mto=self.phonejid, mbody=msg, mtype='chat')
-
-
 
 if __name__ == '__main__':
     # Setup the command line arguments.
@@ -158,6 +168,7 @@ if __name__ == '__main__':
     # have interdependencies, the order in which you register them does
     # not matter.
 
+    # backend  = backends.gtalksms.mapping
     passwd   = os.environ['PHONECTLPASS']
     user     = os.environ['PHONECTLUSER']
     phone    = os.environ['PHONECTLPHONE']
