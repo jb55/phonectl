@@ -161,9 +161,10 @@ if __name__ == '__main__':
     passwd   = os.environ['PHONECTLPASS']
     user     = os.environ['PHONECTLUSER']
     phone    = os.environ['PHONECTLPHONE']
-    sockpath = os.environ['PHONECTLSOCK'] or "/tmp/phonectl.sock"
+    sockpath = os.getenv('PHONECTLSOCK', '/tmp/phonectl.sock')
 
     phonectl = PhoneCtl(user, passwd, phone)
+
     phonectl.register_plugin('xep_0030') # Service Discovery
     phonectl.register_plugin('xep_0199') # XMPP Ping
 
