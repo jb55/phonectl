@@ -2,6 +2,15 @@
 commands = {
   "tts": {
     "has_response": False
+  },
+  "vol": {
+    "has_response": False
+  },
+  "zic": {
+    "has_response": False
+  },
+  "music": {
+    "has_response": False
   }
 }
 
