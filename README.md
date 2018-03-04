@@ -9,12 +9,14 @@
 
 ## Usage
 
-    $ export PHONECTLUSER=user@domain.com
-    $ export PHONECTLPASS=pass
-    $ export PHONECTLPHONE=phone@domain.com
+```sh
+$ export PHONECTLUSER=user@domain.com
+$ export PHONECTLPASS=pass
+$ export PHONECTLPHONE=phone@domain.com
 
-    $ python3 phonectld.py &
-    $ cp phonectl.sh ~/bin/phonectl && chmod +x ~/bin/phonec
+$ python3 phonectld.py &
+$ cp phonectl.sh ~/bin/phonectl
 
-    $ phonectl battery
-    Battery level 84%
+$ phonectl battery
+Battery level 84%
+```
