@@ -14,7 +14,7 @@ $ export PHONECTLUSER=user@domain.com
 $ export PHONECTLPASS=pass
 $ export PHONECTLPHONE=phone@domain.com
 
-$ python3 phonectld.py &
+$ ./phonectld &
 $ cp phonectl.sh ~/bin/phonectl
 
 $ phonectl battery
