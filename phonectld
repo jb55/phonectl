@@ -116,6 +116,7 @@ class PhoneCtl(ClientXMPP):
                     data = connection.recv(1024)
 
                     if not self.available:
+                        logging.info("could not contact phone", cmd)
                         self.respond("could not contact phone", result="offline")
                         break
 
@@ -124,17 +125,12 @@ class PhoneCtl(ClientXMPP):
 
                     if not data or len(data) < 1024:
                         cmd = re.sub("\n$", "", buf.decode("utf-8"))
-                        logging.debug('received %s', cmd)
-
                         logging.info("cmd %s", cmd)
                         self.cmd(cmd)
                         has_response = commands.has_response(cmd)
 
-                        logging.info("has_response %s", str(has_response))
-
                         # no response, we don't know if it succeeds
                         if has_response == False:
-                            logging.info("has no response, responding empty")
                             self.respond_empty(connection)
 
                         while not timed_out and not self.done_response:
